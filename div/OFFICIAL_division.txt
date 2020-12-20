@@ -1,0 +1,101 @@
+CL $R0
+CL $R1
+CL $R2
+CL $R3
+CL $R4
+CL $R5
+CL $R6
+CL $R7
+SET #0
+LOAD $R1
+ADD $R2, $R1
+SET #2
+LOAD $R1
+ADD $R3, $R1
+BeginDiv:
+SET #128
+AND $R2
+CL $R7
+ADD $R7, $R1
+SET #1
+CL $R0
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R2
+SL $R0
+CL $R2
+ADD $R2, $R1
+CL $R1
+ADD $R1, $R4
+SL $R0
+CL $R4
+ADD $R4, $R1
+CL $R1
+ADD $R1, $R5
+SL $R0
+CL $R5
+ADD $R5, $R1
+CL $R1
+ADD $R1, $R7
+BEQZ CheckIfDiv
+SET #1
+ADD $R4, $R1
+CheckIfDiv:
+CL $R1
+ADD $R1, $R4
+SGTE $R3
+BEQZ CheckBitPos
+CL $R1
+ADD $R1, $R4
+SUB $R3
+CL $R4
+ADD $R4, $R1
+SET #1
+ADD $R5, $R1
+CheckBitPos:
+SET #1
+ADD $R6, $R1
+CL $R0
+SET #8 
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R6
+SUB $R0
+BEQZ LowerByte
+CL $R0
+SET #16
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R6
+SUB $R0
+BEQZ Remainder
+CL $R0
+SET #24
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R6
+SUB $R0
+BEQZ Stop
+SET #0
+BEQZ BeginDiv
+LowerByte:
+SET #4
+STORE $R5, $R1
+CL $R5
+SET #1
+LOAD $R1
+CL $R2
+ADD $R2, $R1
+SET #0
+BEQZ BeginDiv
+Remainder:
+SET #5
+STORE $R5, $R1
+CL $R5
+CL $R2
+CL $R1
+BEQZ BeginDiv
+Stop:
+SET #6
+STORE $R5, $R1
+HALT

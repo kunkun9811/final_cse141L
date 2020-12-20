@@ -1,0 +1,194 @@
+// 1. Save R0, R7 before branch
+// 2. Can't have more than 256 instr
+        // Total instr = # of instructions + (7 * # of BEQZ)
+// 3. Labels can ONLY have letters (no numbers or symbols)
+
+// Problem
+// Never updated counter if not divisible
+
+
+// DIAGRAM
+// 4/2
+
+// 0100 <- (R2) outer dividend
+//      0000      <- quotient (R5)
+//      _______
+// 0010 | 0001     <- dividsor (R3) & inner dividend (R4)
+
+// REGISTERS
+// R0 - temp but used for branch addr
+// R1 - accumulator
+// R2 - outer dividend 
+// R3 - divisor
+// R4 - inner dividend
+// R5 - result (quotient or remainder)
+// R6 - counter
+// R7 - temp
+
+// Test example
+// inner dividend = 0
+// outer dividend = 2
+// divisor = 4
+// MEM[0] = 0000 0000
+// MEM[1] = 0000 0010
+// MEM[2] = 0000 0100 
+
+// MEM[4] = 0000 0000
+// MEM[5] = 0000 0000
+// MEM[6] = 0000 0000
+
+// R0 = 0001 1000
+// R1 = 0000 0000
+// R2 (outer dividend) = 0000 0000
+// R3 (divisor) = 0000 0100
+// R4 (inner dividend) = 0000 0000
+// R5 (quotient) = 1000 0000
+// R6 (counter) = 24
+// R7 = 0000 0000
+
+// ** CODE **
+
+CL $R0
+CL $R1
+CL $R2
+CL $R3
+CL $R4
+CL $R5
+CL $R6
+CL $R7
+
+// **LOAD IN TOP BYTE OF DIVIDEND INTO R2
+SET #0
+LOAD $R1            
+ADD $R2, $R1
+
+// **LOAD IN DIVISOR INTO R3
+SET #2
+LOAD $R1
+ADD $R3, $R1
+
+BeginDiv:
+// **GRAB THE FIRST BIT OF DIVIDEND
+SET #128            // assuming it's unsigned
+AND $R2             // R1 = R1 AND R2
+
+// **SHIFT DIVIDENDS AND QUOTIENT
+CL $R7
+ADD $R7, $R1
+
+// SHIFT OUTER DIVIDEND
+SET #1
+CL R0
+ADD $R0, $R1        // shift amt in r0
+CL $R1
+ADD $R1, $R2        // $R1 has dividend that needs to be shifted left once
+SL $R0              // $R1 = $R1 << 1
+CL $R2
+ADD $R2, $R1        // $R2 contains next bit of dividend at the Most significant Bit
+
+// SHIFT INNER DIVIDEND
+CL $R1
+ADD $R1, $R4
+SL $R0
+CL $R4
+ADD $R4, $R1
+
+// SHIFT QUOTIENT
+CL $R1
+ADD $R1, $R5
+SL $R0
+CL $R5
+ADD $R5, $R1
+
+CL $R1
+ADD $R1, $R7       // Restore the r1 value from R7
+
+BEQZ CheckIfDiv
+
+// Shifting into dividend
+SET #1
+ADD $R4, $R1
+
+CheckIfDiv:         // Check if inner dividend (R4) >= divisor (R3)
+CL $R1
+ADD $R1, $R4        // R1 = inner dividend value
+SGTE $R3            // R1 = (R1[R4] >= R3) = (inner dividend >= divisor)
+BEQZ CheckBitPos    // dividend has to be greater or equal to divisor to be divisible = 0
+
+// Subtract divisor from inner dividend AND update(increment only) quotient
+
+// update inner dividend (subtract)
+CL $R1
+ADD $R1, $R4       // R1 = inner dividend
+SUB $R3            // R1 = R1[inner dividend] - $R3[divisor]
+CL $R4
+ADD $R4, $R1
+
+// update quotient (increment)
+SET #1
+ADD $R5, $R1
+
+CheckBitPos:
+// Increment counter that keeps track of how many bits have been shifted/processed
+SET #1
+ADD $R6, $R1
+
+// Check if 8 bits have shifted
+CL $R0              
+SET #8              // R0 = 8
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R6
+SUB $R0             // r1 = counter - 8
+BEQZ LowerByte      // if 8 bits shifted, done with upper byte, proceed with lower byte
+
+// Check if 16
+CL $R0              
+SET #16             // R0 = 16
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R6
+SUB $R0             // r1 = counter - 16
+BEQZ Remainder      // if 16 bits shifted, done with lower byte, proceed with remainder
+
+// check if 24 bits have shifted (decimals are also processed)
+CL $R0              
+SET #24              // R0 = 24
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R6
+SUB $R0             // R1 = counter - 24
+BEQZ Stop           // if 24 bytes shifted, done
+
+// if counter not 8, 16, 24 proceed with normal division
+SET #0
+BEQZ BeginDiv
+
+LowerByte:
+// Store upper byte quotient result into memory[5]
+SET #4
+STORE $R5, $R1
+CL $R5
+
+// Grab lower byte dividend input into R2 and jump back
+SET #1
+LOAD $R1
+CL $R2
+ADD $R2, $R1
+SET #0
+BEQZ BeginDiv
+
+Remainder:
+// Store lower byte quotient into memory
+SET #5
+STORE $R5, $R1
+CL $R5
+CL $R2
+CL $R1
+BEQZ BeginDiv
+
+Stop:
+// Store remainder and halt
+SET #6
+STORE $R5, $R1
+HALT

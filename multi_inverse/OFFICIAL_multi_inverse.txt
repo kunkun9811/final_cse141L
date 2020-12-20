@@ -1,0 +1,226 @@
+CL $R0
+CL $R1
+CL $R2
+CL $R3
+CL $R4
+CL $R5
+CL $R6
+CL $R7
+SET #9
+LOAD $R1
+ADD $R3, $R1
+SET #8
+LOAD $R1
+ADD $R2, $R1
+SET #255                
+ADD $R6, $R1
+CL $R1
+ADD $R1, $R2
+XOR $R6
+CL $R2
+ADD $R2, $R1
+CL $R1
+ADD $R1, $R3
+XOR $R6
+CL $R3
+ADD $R3, $R1
+SET #1
+OFC $R0
+ADDC $R3
+CL $R1
+ADDC $R2
+SET #100
+STORE $R2, $R1
+SET #101
+STORE $R3, $R1
+CL $R0
+CL $R1
+CL $R2
+CL $R3
+CL $R4
+CL $R5
+CL $R6
+CL $R7
+SET #1
+ADD $R3, $R1
+BeginMulti:
+SET #8
+LOAD $R1
+CL $R0
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R2
+SGTE $R0
+BEQZ NotDivisible
+SET #9
+LOAD $R1
+CL $R0
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R3
+SGTE $R0
+BEQZ NotDivisible
+Divisible:
+CL $R0
+SET #101
+LOAD $R1
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R3
+OFC $R0
+ADDC $R0
+CL $R3
+ADD $R3, $R0
+CL $R0
+SET #100
+LOAD $R1
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R2
+ADDC $R0
+CL $R2
+ADD $R2, $R0
+CL $R0
+SET #128
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R3
+AND $R0
+CL $R0
+ADD $R0, $R1
+SET #102                
+STORE $R0, $R1
+SET #1
+CL $R0
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R3
+SL $R0
+CL $R3
+ADD $R3, $R1
+CL $R1
+ADD $R1, $R2
+SL $R0
+CL $R2
+ADD $R2, $R1
+SET #102
+LOAD $R1
+CL $R0
+ADD $R0, $R1
+SET #0
+SLT $R0
+ADD $R2, $R1
+CL $R0
+SET #128
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R5
+AND $R0
+CL $R0
+ADD $R0, $R1
+SET #102                
+STORE $R0, $R1
+SET #1
+CL $R0
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R5
+SL $R0
+CL $R5
+ADD $R5, $R1
+CL $R1
+ADD $R1, $R4
+SL $R0
+CL $R4
+ADD $R4, $R1
+SET #102
+LOAD $R1
+CL $R0
+ADD $R0, $R1
+SET #0
+SLT $R0
+ADD $R4, $R1
+SET #1
+ADD $R6, $R1
+OFC $R0
+ADDC $R5
+CL $R1
+ADDC $R4
+CL $R1
+BEQZ CheckIfDone
+NotDivisible:
+CL $R0
+SET #128
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R3
+AND $R0
+CL $R0
+ADD $R0, $R1
+SET #102                
+STORE $R0, $R1
+SET #1
+CL $R0
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R3
+SL $R0
+CL $R3
+ADD $R3, $R1
+CL $R1
+ADD $R1, $R2
+SL $R0
+CL $R2
+ADD $R2, $R1
+SET #102
+LOAD $R1
+CL $R0
+ADD $R0, $R1
+SET #0
+SLT $R0
+ADD $R2, $R1
+CL $R0
+SET #128
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R5
+AND $R0
+CL $R0
+ADD $R0, $R1
+SET #102                
+STORE $R0, $R1
+SET #1
+CL $R0
+ADD $R0, $R1
+CL $R1
+ADD $R1, $R5
+SL $R0
+CL $R5
+ADD $R5, $R1
+CL $R1
+ADD $R1, $R4
+SL $R0
+CL $R4
+ADD $R4, $R1
+SET #102
+LOAD $R1
+CL $R0
+ADD $R0, $R1
+SET #0
+SLT $R0
+ADD $R4, $R1
+IncCounter:
+SET #1
+ADD $R6, $R1
+CheckIfDone:
+SET #16
+SUB $R6
+BEQZ Stop
+CL $R1
+BEQZ BeginMulti
+Stop:
+SET #10
+STORE $R4, $R1
+SET #11
+STORE $R5, $R1
+HALT

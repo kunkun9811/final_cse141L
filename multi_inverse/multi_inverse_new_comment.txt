@@ -1,0 +1,406 @@
+// ADDC $RS => RS = RS + R1 + Overflow
+//          NOT => R1 = RS + R1 + Overflow
+
+// why did I think I had to do it this way I forgot, but just save it here for now
+// For upper byte, just use dividend upper byte >= divisor upper byte
+        // If the above is true, go check lower byte
+        // If not it is not divisible
+// For lower byte, first check if divisor lower byte < dividend lower byte (since we do not have SLTE)
+        // If yes, then it is divisible
+        // If no, check if it is equal
+
+// Check if lower bytes are equal
+        // If yes, it is divisible
+        // else, not divisble
+
+// 1. Save R0, R7 before branch
+// 2. Can't have more than 256 instr
+        // Total instr = # of instructions + (7 * # of BEQZ)
+// 3. Labels can ONLY have letters (no numbers or symbols)
+
+// Problem
+// Never updated counter if not divisible
+
+
+// ** DIAGRAM **
+// 4/2
+
+// 0100 <- (R2) outer dividend
+//      0000      <- quotient (R5)
+//      _______
+// 0010 | 0001     <- dividsor (R3) & inner dividend (R4)
+
+// ** INPUTS **
+// DM[8] = UPPER BYTE divisor
+// DM[9] = LOWER BYTE divisor
+
+// ** OUTPUTS
+// DM[10] = UPPER BYTE multiplicative result
+// DM[11] = LOWER BYTE multiplicative result
+
+// ** REGISTERS + DATA MEMORY
+// DM[100] = two's complement divisor UPPER BYTE
+// DM[101] = two's complement divisor LOWER BYTE
+// DM[8] = UPPER BYTE divisor                   // instead of wasting registers to store 16-bit divisor
+// DM[9] = LOWER BYTE divisor                   // in 2 registers, I'm just going to leave it in memory
+// R0 - temp but used for branch addr
+// R1 - accumulator
+// R2 - upper dividend
+// R3 - lower dividend
+// R4 - upper quotient
+// R5 - lower quotient
+// R6 - counter
+// R7 - temp but REMEMBER to save this when branching
+
+// Test example
+// ANSEWR SHOULD BE = 0100 0000 0000 0000
+// upper divisor = 0
+// lower divisor = 4
+// MEM[8] = 0000 0000
+// MEM[9] = 0000 0100
+
+// MEM[10] = 0000 0000
+// MEM[11] = 0000 0000
+
+// MEM[100] (2's complement upper divisor)= 1111 1111
+// MEM[101] (2's complement lower divisor)= 1111 1100
+// MEM[102] = 0000 0000
+
+// Addition Carry calculator
+// RS           0000 0000   
+// R1           0000 0000   
+// Carry        0000 0000
+//________________________
+// Out          0000 0000
+// OF           0
+
+// DM[8] = 0000 0000             
+// DM[9] = 0000 0100         
+// R0 = 1000 0000
+// R1 = 1000 0000
+// R2 (upper dividend) = 0000 0000
+// R3 (lower dividend) = 0000 0000
+// R4 (upper quotient) = 0000 0000
+// R5 (lower quotient) = 1000 0000
+// R6 (counter) = 10
+// R7 = 0000 0000
+// Carry/Overflow = 0
+
+// ** CHECK IF DIVISIBLE'S LOGIC **
+// For upper byte, check if dividend upper byte >= divisor upper byte
+        // If the above is true, go check lower byte
+        // If not it is not divisible
+// For lower byte, check if dividend lower byte >= divisor lower byte 
+        // If yes, then it is divisible
+        // If no, not divisible
+
+// ** LOGIC FOR WHEN IT IS DIVISIBLE BEFORE JUMPING BACK TO THE TOP OF THE LOOP **
+// Dividend = dividend - divisor
+// Dividend << 1
+// Quotient << 1
+// Quotient = Quotient + 1
+// Counter = Counter + 1
+
+// ** LOGIC FOR WHEN IT IS NOT DIVISIBLE BEFORE JUMPING BACK TO THE TOP OF THE LOOP **
+// Dividend << 1
+// Quotient << 1
+// Counter = Counter + 1
+
+
+// ** CODE **
+CL $R0
+CL $R1
+CL $R2
+CL $R3
+CL $R4
+CL $R5
+CL $R6
+CL $R7
+
+// Prepare two's complement divisor first AND store it in DM[100] and DM[101] - just in case it doesn't interfere with other programs
+SET #9
+LOAD $R1                // grab lower byte divisor
+ADD $R3, $R1            // R3 = lower byte divisor
+SET #8
+LOAD $R1                // grab upper byte divisor
+ADD $R2, $R1            // R2 = upper byte divisor
+
+SET #255                
+ADD $R6, $R1            // R6 = 1111 1111
+CL $R1
+ADD $R1, $R2            // R1 = upper byte divisor
+XOR $R6                 // R1 = ~R1, flipped
+CL $R2
+ADD $R2, $R1            // R2 = flipped upper byte divisor
+CL $R1
+ADD $R1, $R3            // R1 = lower byte divisor
+XOR $R6                 // R1 = ~R1
+CL $R3
+ADD $R3, $R1            // R3 = ~R3
+SET #1
+OFC $R0                 // Clear before doing a new 16-bit arithmetic
+ADDC $R3                // ~R3 += 1     <-- remember this will have a carry(either 0 or 1)
+CL $R1                  // R1 = 0       <-- need to do this or else the next instruction would become
+                        //                      R2 = R1 + R2 + carry
+                        //                      we want
+                        //                      R2 = R2 + carry
+ADDC $R2                // R2 = ~R2 + carry upper byte is added with the carry, might not change if carry is 0
+
+// store into DM[100] and DM[101]
+SET #100
+STORE $R2, $R1          // DM[100] = 2's complement divisor UPPER byte
+SET #101
+STORE $R3, $R1          // DM[101] = 2's complement divisor LOWER byte
+
+// ** Clear again for good measure
+CL $R0
+CL $R1
+CL $R2
+CL $R3
+CL $R4
+CL $R5
+CL $R6
+CL $R7
+
+// set dividend to 1 => {R2, R3} = 00000000 00000001
+SET #1
+ADD $R3, $R1
+
+BeginMulti:
+// ** Check if divisble
+SET #8                  // grab upper byte divisor
+LOAD $R1
+CL $R0
+ADD $R0, $R1            // R0 = upper byte divisor
+CL $R1
+ADD $R1, $R2            // R1 = upper byte dividend
+SGTE $R0                // if[upper dividend >= upper divisor]: R1 = 1
+                        // else: R1 = 0
+BEQZ NotDivisible       // if not divisble(R1 = 0) => just jump to NotDivisible quotient and dividend
+
+SET #9                  // else(R1 = 1), check lower byte, grab lower byte divisor
+LOAD $R1
+CL $R0
+ADD $R0, $R1            // R0 = lower byte divisor
+CL $R1
+ADD $R1, $R3            // R1 = lower byte dividend
+SGTE $R0                // if[lower dividend >= lower divisor]: R1 = 1 => divisible
+                        // else: R1 = 0 => not divisible, jump to NotDivisible
+BEQZ NotDivisible
+
+// ** Perform subtraction for dividend and SHIFT + INCREMENT quotient, then jump to top **
+Divisible:
+// (1a) dividend - divisor => LOWER BYTE
+CL $R0
+SET #101
+LOAD $R1
+ADD $R0, $R1            // R0 = grab LOWER byte ivisor from DM[101]
+CL $R1
+ADD $R1, $R3            // R1 = grab LOWER byte dividend
+OFC $R0                 // TODO: This should work, if program doesn't work, debug this first
+ADDC $R0                // R0 = lower dividend + (-lower divisor) + CarryIn, and this will POTENTIALLY produce Carry/Overflow = 1 or 0
+                        // NOTE: the above CarryIn will ALWAYS be 0 here, because we Overflow Cleared it
+CL $R3
+ADD $R3, $R0            // R3 = updated/new LOWER byte dividend
+
+// (1b) dividend - divisor => UPPER BYTE
+CL $R0
+SET #100
+LOAD $R1
+ADD $R0, $R1            // R0 = grab UPPER byte divisor from DM[100]
+CL $R1
+ADD $R1, $R2            // R1 = grab UPPER byte dividend
+ADDC $R0                // R0 = upper dividend + (-upper divisor) + CarryIn
+                        // NOTE: the above CarryIn MIGHT be 1 or 0
+CL $R2
+ADD $R2, $R0            // R2 = updated/new UPPER byte dividend
+
+// (2) Shift dividends to the left - need to also make sure if top bit lower byte is 1, need to + 1 upper byte after it has been shifted
+CL $R0
+SET #128
+ADD $R0, $R1            // R0 = 1000 0000
+CL $R1
+ADD $R1, $R3            // R1 = updated/new LOWER byte dividend
+AND $R0                 // R1 = updated/new LOWER byte dividend & 1000 0000, Check first bit
+                        // R1 contains whether or not lower byte top bit is 1 or 0
+CL $R0
+ADD $R0, $R1            // R0 = the AND result above
+SET #102                
+STORE $R0, $R1          // temporary store AND result in DM[102]
+
+// now R0, R1, R7 are free to use
+// shift LOWER
+SET #1
+CL $R0
+ADD $R0, $R1            // R0 = 1
+CL $R1
+ADD $R1, $R3            // R1 = updated/new lower byte dividend
+SL $R0                 // R1 = updated/new lower byte dividend << 1
+CL $R3
+ADD $R3, $R1            // R3 = updated/new lower byte dividend << 1
+
+// shift UPPER
+CL $R1
+ADD $R1, $R2
+SL $R0
+CL $R2
+ADD $R2, $R1
+SET #102                // grab the AND result
+LOAD $R1
+CL $R0
+ADD $R0, $R1            // R0 = 1000 0000
+SET #0
+SLT $R0                 // IF[R1 < R0]: R1 = 1, this means top bit of lower byte was 1
+                        // else: R1 = 0
+ADD $R2, $R1            // add potential Shifted in 1
+
+// (3) Shift quotient
+CL $R0
+SET #128
+ADD $R0, $R1            // R0 = 1000 0000
+CL $R1
+ADD $R1, $R5            // R1 = updated/new LOWER byte dividend
+AND $R0                 // R1 = updated/new LOWER byte dividend & 1000 0000, Check first bit
+                        // R1 contains whether or not lower byte top bit is 1 or 0
+CL $R0
+ADD $R0, $R1            // R0 = the AND result above
+SET #102                
+STORE $R0, $R1          // temporary store AND result in DM[102]
+
+// now R0, R1, R7 are free to use
+// shift LOWER
+SET #1
+CL $R0
+ADD $R0, $R1            // R0 = 1
+CL $R1
+ADD $R1, $R5            // R1 = updated/new lower byte QUOTIENT
+SL $R0                 // R1 = updated/new lower byte QUOTIENT << 1
+CL $R5
+ADD $R5, $R1            // R5 = updated/new lower byte QUOTIENT << 1
+
+// shift UPPER
+CL $R1
+ADD $R1, $R4
+SL $R0
+CL $R4
+ADD $R4, $R1
+SET #102                // grab the AND result
+LOAD $R1
+CL $R0
+ADD $R0, $R1            // R0 = 1000 0000
+SET #0
+SLT $R0                 // IF[R1 < R0]: R1 = 1, this means top bit of lower byte was 1
+                        // else: R1 = 0
+ADD $R4, $R1            // add potential Shifted in 1
+
+// (4) Quotient + 1 AND Increment Counter(Cuz we running out of space xd)
+SET #1
+ADD $R6, $R1            // (5) Increment Counter
+OFC $R0                 // Clear Overflow
+ADDC $R5                // R5 = R1 + R5 + CarryIn = 1 + R5 + CarryIn, this will potentially produce overflow/carry
+CL $R1
+ADDC $R4                // R4 = 0 + R4 + CarryIn
+
+// Jump to CheckIfDone
+CL $R1
+BEQZ CheckIfDone
+
+// ONLY SHIFT, then jump to top
+NotDivisible:
+// (1) Shift dividends to the left - need to also make sure if top bit lower byte is 1, need to + 1 upper byte after it has been shifted
+CL $R0
+SET #128
+ADD $R0, $R1            // R0 = 1000 0000
+CL $R1
+ADD $R1, $R3            // R1 = updated/new LOWER byte dividend
+AND $R0                 // R1 = updated/new LOWER byte dividend & 1000 0000, Check first bit
+                        // R1 contains whether or not lower byte top bit is 1 or 0
+CL $R0
+ADD $R0, $R1            // R0 = the AND result above
+SET #102                
+STORE $R0, $R1          // temporary store AND result in DM[102]
+
+// now R0, R1, R7 are free to use
+// shift LOWER
+SET #1
+CL $R0
+ADD $R0, $R1            // R0 = 1
+CL $R1
+ADD $R1, $R3            // R1 = updated/new lower byte dividend
+SL $R0                 // R1 = updated/new lower byte dividend << 1
+CL $R3
+ADD $R3, $R1            // R3 = updated/new lower byte dividend << 1
+
+// shift UPPER
+CL $R1
+ADD $R1, $R2
+SL $R0
+CL $R2
+ADD $R2, $R1
+SET #102                // grab the AND result
+LOAD $R1
+CL $R0
+ADD $R0, $R1            // R0 = 1000 0000
+SET #0
+SLT $R0                 // IF[R1 < R0]: R1 = 1, this means top bit of lower byte was 1
+                        // else: R1 = 0
+ADD $R2, $R1            // add potential Shifted in 1
+
+// (2) Shift quotient
+CL $R0
+SET #128
+ADD $R0, $R1            // R0 = 1000 0000
+CL $R1
+ADD $R1, $R5            // R1 = updated/new LOWER byte dividend
+AND $R0                 // R1 = updated/new LOWER byte dividend & 1000 0000, Check first bit
+                        // R1 contains whether or not lower byte top bit is 1 or 0      // TODO: 342
+CL $R0
+ADD $R0, $R1            // R0 = the AND result above
+SET #102                
+STORE $R0, $R1          // temporary store AND result in DM[102]
+
+// now R0, R1, R7 are free to use
+// shift LOWER
+SET #1
+CL $R0
+ADD $R0, $R1            // R0 = 1
+CL $R1
+ADD $R1, $R5            // R1 = updated/new lower byte QUOTIENT
+SL $R0                 // R1 = updated/new lower byte QUOTIENT << 1
+CL $R5
+ADD $R5, $R1            // R5 = updated/new lower byte QUOTIENT << 1
+
+// shift UPPER
+CL $R1
+ADD $R1, $R4
+SL $R0
+CL $R4
+ADD $R4, $R1
+SET #102                // grab the AND result
+LOAD $R1                // 1000 0000
+CL $R0
+ADD $R0, $R1            // R0 = 1000 0000
+SET #0
+SLT $R0                 // IF[R1 < R0]: R1 = 1, this means top bit of lower byte was 1
+                        // else: R1 = 0
+ADD $R4, $R1            // add potential Shifted in 1
+
+// (3) Increment Counter
+IncCounter:
+SET #1
+ADD $R6, $R1
+
+// Check if we already processed 16 bits
+CheckIfDone:
+SET #16
+SUB $R6
+BEQZ Stop
+CL $R1
+BEQZ BeginMulti
+
+Stop:
+SET #10
+STORE $R4, $R1          // store upper quotient to DM[10]
+SET #11
+STORE $R5, $R1          // store lower quotient to DM[11]
+HALT
